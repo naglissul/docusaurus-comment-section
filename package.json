@@ -1,7 +1,7 @@
 {
   "name": "docusaurus-comment-section",
-  "version": "1.0.4",
-  "description": "Example hello world npm package",
+  "version": "2.0.0",
+  "description": "Docusaurus comment section component",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {

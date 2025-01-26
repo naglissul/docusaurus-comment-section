@@ -13,7 +13,6 @@ const firebaseConfig = {
 function App() {
   return (
     <>
-      <h1>Comments</h1>
       <FirebaseProvider config={firebaseConfig}>
         <CommentSection postId={"hohoho"} isDefaultVerified={true} />
       </FirebaseProvider>

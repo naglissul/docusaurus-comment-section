@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from "react";
 import {
-  arrayUnion,
+  collection,
   doc,
-  getDoc,
   onSnapshot,
+  query,
+  where,
+  addDoc,
   setDoc,
-  updateDoc,
+  serverTimestamp,
+  getDoc,
 } from "firebase/firestore";
 import { useFirebase } from "./FirebaseContext";
 import {
@@ -13,7 +16,7 @@ import {
   Button,
   List,
   ListItem,
-  ListItemText,
+  TextareaAutosize,
   TextField,
   Typography,
 } from "@mui/material";
@@ -27,83 +30,154 @@ export default function CommentSection({
   const [email, setEmail] = useState("");
   const [docVerified, setDocVerified] = useState(propVerified);
   const [comments, setComments] = useState([]);
-
   const { db } = useFirebase();
 
   useEffect(() => {
-    const docRef = doc(db, "comments", postId);
-    const unsub = onSnapshot(docRef, (snapshot) => {
-      if (snapshot.exists()) {
-        const data = snapshot.data();
-        setComments(data.comments || []);
-        setDocVerified(data.isDefaultVerified);
+    const postRef = doc(db, "posts", postId);
+
+    // Check if the post exists and create it if it doesn't
+    getDoc(postRef).then((snap) => {
+      if (!snap.exists()) {
+        setDoc(postRef, { isDefaultVerified: propVerified })
+          .then(() => console.log(`Post ${postId} created.`))
+          .catch((error) => console.error("Error creating post:", error));
       } else {
-        setComments([]);
+        setDocVerified(snap.data().isDefaultVerified);
+      }
+    });
+
+    // Listen for updates to the post
+    const unsubPost = onSnapshot(postRef, (snap) => {
+      if (snap.exists()) {
+        setDocVerified(snap.data().isDefaultVerified);
+      } else {
         setDocVerified(propVerified);
       }
     });
-    return () => unsub();
+
+    // Listen for comments on the post
+    const commentsRef = collection(db, "comments");
+    const q = query(commentsRef, where("postId", "==", postId));
+    const unsubComments = onSnapshot(q, (snap) => {
+      const list = [];
+      snap.forEach((d) => {
+        const data = d.data();
+        if (data.timestamp && typeof data.timestamp.toDate === "function") {
+          data.timestamp = data.timestamp.toDate();
+        }
+        if (
+          data.createdAtClient &&
+          typeof data.createdAtClient.toDate === "function"
+        ) {
+          data.createdAtClient = data.createdAtClient.toDate();
+        }
+        list.push({ id: d.id, ...data });
+      });
+      setComments(list);
+    });
+
+    return () => {
+      unsubPost();
+      unsubComments();
+    };
   }, [postId, db, propVerified]);
 
   async function submitComment() {
-    // If docVerified is false, let user know their comment won't be visible until verified
-    if (!docVerified) {
+    if (!docVerified)
       alert(
-        "Your comment is not verified, so it won't be displayed until the post author verifies it."
+        "Your comment is not verified and won't be visible until verified."
       );
-    }
+
+    const clientTimestamp = new Date();
 
     const newComment = {
+      postId,
       content,
       name,
       isAuthor: false,
       email,
       verified: docVerified,
+      timestamp: serverTimestamp(),
+      createdAtClient: clientTimestamp,
     };
 
-    await addComment(postId, newComment);
-    setContent("");
-    setName("");
-    setEmail("");
-  }
-
-  async function addComment(postId, newComment) {
-    const docRef = doc(db, "comments", postId);
-    const snapshot = await getDoc(docRef);
-
-    if (!snapshot.exists()) {
-      await setDoc(docRef, {
-        postId,
-        isDefaultVerified: propVerified,
-        comments: [newComment],
-      });
-    } else {
-      await updateDoc(docRef, {
-        comments: arrayUnion(newComment),
-      });
+    try {
+      await addDoc(collection(db, "comments"), newComment);
+      setContent("");
+      setName("");
+      setEmail("");
+    } catch (error) {
+      console.error("Error adding comment:", error);
+      alert("There was an error adding your comment. Please try again.");
     }
   }
 
-  // Filter out comments that are not verified
+  function formatDate(date) {
+    if (!(date instanceof Date)) {
+      console.error("formatDate: Expected a Date object, received:", date);
+      return "Invalid Date";
+    }
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+
+    return `${year}-${month}-${day} ${hours}:${minutes}`;
+  }
+
   const displayedComments = comments.filter((c) => c.verified);
+
   return (
-    <Box sx={{ maxWidth: 600, margin: "0 auto", p: 2 }}>
-      <Typography variant="h5" gutterBottom>
-        Comments for {postId}
-      </Typography>
+    <Box
+      sx={{
+        maxWidth: 600,
+        minWidth: 600,
+        width: 600,
+        margin: "0 auto",
+        p: 2,
+      }}
+    >
+      <h2>Comments</h2>
       <List>
-        {displayedComments.map((c, idx) => (
-          <ListItem key={idx}>
-            <ListItemText primary={`${c.name || "Anonymous"}: ${c.content}`} />
-          </ListItem>
-        ))}
+        {displayedComments.map((c) => {
+          let displayTimestamp = "";
+          if (c.timestamp instanceof Date) {
+            displayTimestamp = formatDate(c.timestamp);
+          } else if (c.createdAtClient instanceof Date) {
+            displayTimestamp = formatDate(c.createdAtClient);
+          } else {
+            displayTimestamp = "Just now";
+          }
+
+          return (
+            <ListItem key={c.id} sx={{ display: "block" }}>
+              <Typography variant="subtitle1" fontWeight="bold">
+                {c.name || "Anonymous"}
+              </Typography>
+              <Typography fontSize="8px" color="textSecondary" sx={{ mb: 1 }}>
+                {displayTimestamp}
+              </Typography>
+              <Typography variant="body1">{c.content}</Typography>
+              <hr />
+            </ListItem>
+          );
+        })}
       </List>
-      <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 2 }}>
-        <TextField
-          label="Content"
-          variant="outlined"
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 2,
+          mt: 2,
+        }}
+      >
+        <TextareaAutosize
+          placeholder="Comment*"
           value={content}
           onChange={(e) => setContent(e.target.value)}
+          required
+          style={{ minHeight: 100 }}
         />
         <TextField
           label="Name (optional)"
@@ -114,6 +188,7 @@ export default function CommentSection({
         <TextField
           label="Email (optional, not shown)"
           variant="outlined"
+          type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />

@@ -19,18 +19,13 @@ This is pretty straightforward npm package code. For docusaurus (but, actually, 
 ```json
 rules_version = '2';
 
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /comments/{postId} {
-      allow create: if true;
-    }
-  }
-}
+service cloud.firestore { match /databases/{database}/documents { match /posts/{postId} { allow read: if true; allow write: if true; } match /comments/{commentId} { allow read: if true; allow create: if ( request.resource.data.postId is string && request.resource.data.content is string && request.resource.data.timestamp is timestamp ); allow update: if true; allow delete: if false; } } }
+
 ```
 
 4. Go to project settings and create an app (web app). Copy the `const firebaseConfig = { ... }` part.
 
-### Step 2: Use the package
+### Step 2: Use the package (basic example)
 
 ```bash
 npm install docusaurus-comment-section
@@ -66,6 +61,32 @@ function App() {
 export default App;
 ```
 
+### Step 3: Implementing in docusaurus blog posts (example)
+
+Of course you can use component as you like, but here is one of the possible solutions - show comment section only in the end of single page blog post display.
+
+```bash
+npm run swizzle BlogPostPage --eject
+```
+
+And then insert this code in `src/theme/BlogPostPage/index.tsx`:
+
+```js
+      <BlogPostItem>{children}</BlogPostItem>
+
+      {/* Added content */}
+      <FirebaseProvider config={firebaseConfig}>
+        <CommentSection postId={metadata.title} isDefaultVerified={true} />
+      </FirebaseProvider>{" "}
+      {/* End of added content */}
+
+      {(nextItem || prevItem) && (
+        <BlogPostPaginator nextItem={nextItem} prevItem={prevItem} />
+      )}
+```
+
+Also, of course, include firebaseConfig constant in the file.
+
 ## How this works
 
 Based on the website [sesinuliai.lt](https://sesinuliai.lt).
@@ -74,19 +95,20 @@ Firestore database structure:
 
 ```json
 {
+  "posts": [
+    {
+      "postId": "AnyIdButUnique",
+      "isDefaultVerified": false
+    }
+  ],
   "comments": [
     {
       "postId": "AnyIdButUnique",
-      "isDefaultVerified": false,
-      "comments": [
-        {
-          "content": "Required content",
-          "name": "Not required name, can be anonymous",
-          "isAuthor": false,
-          "email": "Not required email. Not shown",
-          "verified": true
-        }
-      ]
+      "content": "Required content",
+      "name": "Not required name, can be anonymous",
+      "isAuthor": false,
+      "email": "Not required email. Not shown",
+      "verified": true
     }
   ]
 }
