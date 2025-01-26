@@ -2,13 +2,14 @@ import "./App.css";
 import { CommentSection, FirebaseProvider } from "docusaurus-comment-section";
 
 const firebaseConfig = {
-  apiKey: "AIqaSyB9pUI5p93eatRFG4ZAU1g88oYACmDxXC4",
-  authDomain: "abc.firebaseapp.com",
-  projectId: "abc",
-  storageBucket: "abc.firebasestorage.app",
-  messagingSenderId: "496235222546",
-  appId: "1:497425222546:web:404e256e643ff0337b44f4b",
+  apiKey: "AIzaSyB9pUE5p93eatRFG4ZAU1g88oYACDmxXC4",
+  authDomain: "npw-lt-8f4e9.firebaseapp.com",
+  projectId: "npw-lt-8f4e9",
+  storageBucket: "npw-lt-8f4e9.firebasestorage.app",
+  messagingSenderId: "497425222546",
+  appId: "1:497425222546:web:404e256e216f0337b44f4b",
 };
+
 function App() {
   return (
     <>

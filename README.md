@@ -16,15 +16,13 @@ This is pretty straightforward npm package code. For docusaurus (but, actually, 
 2. Go to console.firebase.google.com and create new project (or use an existing one), create firestore database.
 3. Set security rules:
 
-WAIT AND MODIFY LATER
-
 ```json
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if false;
+    match /comments/{postId} {
+      allow create: if true;
     }
   }
 }
@@ -59,7 +57,7 @@ function App() {
     <>
       <h1>Comments</h1>
       <FirebaseProvider config={firebaseConfig}>
-        <CommentSection />
+        <CommentSection postId={"hohoho"} isDefaultVerified={true} />
       </FirebaseProvider>
     </>
   );
@@ -78,14 +76,14 @@ Firestore database structure:
 {
   "comments": [
     {
-      "postId": "anyidbutunique",
+      "postId": "AnyIdButUnique",
       "isDefaultVerified": false,
       "comments": [
         {
           "content": "Required content",
-          "name": "not required name, can be anonymous",
+          "name": "Not required name, can be anonymous",
           "isAuthor": false,
-          "email": "Not required email. just to be notified about the answer",
+          "email": "Not required email. Not shown",
           "verified": true
         }
       ]
